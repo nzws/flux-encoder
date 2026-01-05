@@ -27,9 +27,6 @@ jobs:
     - name: Download dependencies
       run: go mod download
 
-    - name: Generate protobuf
-      run: task proto
-
     - name: Run format check
       run: |
         task fmt
@@ -67,9 +64,6 @@ jobs:
 
     - name: Download dependencies
       run: go mod download
-
-    - name: Generate protobuf
-      run: task proto
 
     - name: Build
       run: task build
