@@ -31,6 +31,92 @@ func TestFFProbe_ParseFrameRate(t *testing.T) {
 	}
 }
 
+func TestFFProbe_ConvertToMediaInfo_BasicVideoWithAudio(t *testing.T) {
+	ffprobe := NewFFProbe()
+
+	input := &ffprobeOutput{
+		Format: ffprobeFormat{
+			FormatName: "mp4",
+			Duration:   "10.5",
+			Size:       "1048576",
+			BitRate:    "800000",
+		},
+		Streams: []ffprobeStream{
+			{
+				CodecType:    "video",
+				CodecName:    "h264",
+				Profile:      "High",
+				Width:        1280,
+				Height:       720,
+				PixFmt:       "yuv420p",
+				RFrameRate:   "30/1",
+				AvgFrameRate: "30/1",
+				BitRate:      "700000",
+			},
+			{
+				CodecType:     "audio",
+				CodecName:     "aac",
+				SampleRate:    "48000",
+				Channels:      2,
+				ChannelLayout: "stereo",
+				BitRate:       "128000",
+			},
+		},
+	}
+
+	mediaInfo, err := ffprobe.convertToMediaInfo(input)
+	if err != nil {
+		t.Fatalf("convertToMediaInfo failed: %v", err)
+	}
+
+	// Validate format info
+	if mediaInfo.Format != "mp4" {
+		t.Errorf("Expected format mp4, got %s", mediaInfo.Format)
+	}
+	if mediaInfo.Duration != 10.5 {
+		t.Errorf("Expected duration 10.5, got %f", mediaInfo.Duration)
+	}
+	if mediaInfo.Size != 1048576 {
+		t.Errorf("Expected size 1048576, got %d", mediaInfo.Size)
+	}
+	if mediaInfo.Bitrate != 800000 {
+		t.Errorf("Expected bitrate 800000, got %d", mediaInfo.Bitrate)
+	}
+
+	// Validate video stream
+	if len(mediaInfo.VideoStreams) != 1 {
+		t.Fatalf("Expected 1 video stream, got %d", len(mediaInfo.VideoStreams))
+	}
+	video := mediaInfo.VideoStreams[0]
+	if video.Codec != "h264" {
+		t.Errorf("Expected codec h264, got %s", video.Codec)
+	}
+	if video.Width != 1280 {
+		t.Errorf("Expected width 1280, got %d", video.Width)
+	}
+	if video.Height != 720 {
+		t.Errorf("Expected height 720, got %d", video.Height)
+	}
+	if video.FrameRate != 30.0 {
+		t.Errorf("Expected frame rate 30.0, got %f", video.FrameRate)
+	}
+
+	// Validate audio stream
+	if len(mediaInfo.AudioStreams) != 1 {
+		t.Fatalf("Expected 1 audio stream, got %d", len(mediaInfo.AudioStreams))
+	}
+	audio := mediaInfo.AudioStreams[0]
+	if audio.Codec != "aac" {
+		t.Errorf("Expected codec aac, got %s", audio.Codec)
+	}
+	if audio.SampleRate != 48000 {
+		t.Errorf("Expected sample rate 48000, got %d", audio.SampleRate)
+	}
+	if audio.Channels != 2 {
+		t.Errorf("Expected 2 channels, got %d", audio.Channels)
+	}
+}
+
 func TestFFProbe_ConvertToMediaInfo(t *testing.T) {
 	ffprobe := NewFFProbe()
 
@@ -39,81 +125,6 @@ func TestFFProbe_ConvertToMediaInfo(t *testing.T) {
 		input    *ffprobeOutput
 		validate func(*testing.T, *MediaInfo)
 	}{
-		{
-			name: "basic video with audio",
-			input: &ffprobeOutput{
-				Format: ffprobeFormat{
-					FormatName: "mp4",
-					Duration:   "10.5",
-					Size:       "1048576",
-					BitRate:    "800000",
-				},
-				Streams: []ffprobeStream{
-					{
-						CodecType:    "video",
-						CodecName:    "h264",
-						Profile:      "High",
-						Width:        1280,
-						Height:       720,
-						PixFmt:       "yuv420p",
-						RFrameRate:   "30/1",
-						AvgFrameRate: "30/1",
-						BitRate:      "700000",
-					},
-					{
-						CodecType:     "audio",
-						CodecName:     "aac",
-						SampleRate:    "48000",
-						Channels:      2,
-						ChannelLayout: "stereo",
-						BitRate:       "128000",
-					},
-				},
-			},
-			validate: func(t *testing.T, info *MediaInfo) {
-				if info.Format != "mp4" {
-					t.Errorf("Expected format mp4, got %s", info.Format)
-				}
-				if info.Duration != 10.5 {
-					t.Errorf("Expected duration 10.5, got %f", info.Duration)
-				}
-				if info.Size != 1048576 {
-					t.Errorf("Expected size 1048576, got %d", info.Size)
-				}
-				if info.Bitrate != 800000 {
-					t.Errorf("Expected bitrate 800000, got %d", info.Bitrate)
-				}
-				if len(info.VideoStreams) != 1 {
-					t.Fatalf("Expected 1 video stream, got %d", len(info.VideoStreams))
-				}
-				video := info.VideoStreams[0]
-				if video.Codec != "h264" {
-					t.Errorf("Expected codec h264, got %s", video.Codec)
-				}
-				if video.Width != 1280 {
-					t.Errorf("Expected width 1280, got %d", video.Width)
-				}
-				if video.Height != 720 {
-					t.Errorf("Expected height 720, got %d", video.Height)
-				}
-				if video.FrameRate != 30.0 {
-					t.Errorf("Expected frame rate 30.0, got %f", video.FrameRate)
-				}
-				if len(info.AudioStreams) != 1 {
-					t.Fatalf("Expected 1 audio stream, got %d", len(info.AudioStreams))
-				}
-				audio := info.AudioStreams[0]
-				if audio.Codec != "aac" {
-					t.Errorf("Expected codec aac, got %s", audio.Codec)
-				}
-				if audio.SampleRate != 48000 {
-					t.Errorf("Expected sample rate 48000, got %d", audio.SampleRate)
-				}
-				if audio.Channels != 2 {
-					t.Errorf("Expected 2 channels, got %d", audio.Channels)
-				}
-			},
-		},
 		{
 			name: "video only",
 			input: &ffprobeOutput{
