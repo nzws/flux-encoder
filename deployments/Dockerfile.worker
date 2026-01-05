@@ -17,10 +17,10 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o worker ./cmd/worker
 
 # Runtime stage
-FROM jrottenberg/ffmpeg:6.1-alpine
+FROM lscr.io/linuxserver/ffmpeg:8.0.1
 
 # Install ca-certificates
-RUN apk --no-cache add ca-certificates tzdata
+RUN apt-get update && apt-get install -y ca-certificates tzdata && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /root/
 

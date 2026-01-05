@@ -68,10 +68,47 @@ jobs:
     - name: Build
       run: task build
 
-  docker:
+  docker-worker:
     runs-on: ubuntu-latest
     needs: test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ github.token }}
+
+    - name: Build and push Worker
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        file: deployments/Dockerfile.worker
+        push: true
+        tags: ghcr.io/${{ github.actor }}/flux-encoder-worker:latest
+        platforms: linux/amd64,linux/arm64
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  docker-controlplane:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
     steps:
     - uses: actions/checkout@v6
 
@@ -95,17 +132,6 @@ jobs:
         file: deployments/Dockerfile.controlplane
         push: true
         tags: ghcr.io/${{ github.actor }}/flux-encoder-controlplane:latest
-        platforms: linux/amd64,linux/arm64
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
-
-    - name: Build and push Worker
-      uses: docker/build-push-action@v6
-      with:
-        context: .
-        file: deployments/Dockerfile.worker
-        push: true
-        tags: ghcr.io/${{ github.actor }}/flux-encoder-worker:latest
         platforms: linux/amd64,linux/arm64
         cache-from: type=gha
         cache-to: type=gha,mode=max
