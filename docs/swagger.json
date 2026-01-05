@@ -1,0 +1,213 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "title": "Flux Encoder API",
+        "contact": {},
+        "version": "0.1.0"
+    },
+    "host": "localhost:8080",
+    "basePath": "/api/v1",
+    "paths": {
+        "/jobs": {
+            "post": {
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "description": "Submit a new video encoding job to the Control Plane. The job will be distributed to an available Worker.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "jobs"
+                ],
+                "summary": "Create encoding job",
+                "parameters": [
+                    {
+                        "description": "Job parameters",
+                        "name": "job",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_controlplane_api.JobRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Job accepted",
+                        "schema": {
+                            "$ref": "#/definitions/internal_controlplane_api.JobResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_controlplane_api.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "No available workers",
+                        "schema": {
+                            "$ref": "#/definitions/internal_controlplane_api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/jobs/{id}/stream": {
+            "get": {
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "description": "Get real-time job progress updates via Server-Sent Events (SSE)",
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "jobs"
+                ],
+                "summary": "Stream job progress",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "SSE stream of job progress",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Job not found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_controlplane_api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/workers/status": {
+            "get": {
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "description": "Get status of all registered Workers (not implemented yet)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "workers"
+                ],
+                "summary": "Get worker status",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_controlplane_api.WorkerStatusResponse"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "internal_controlplane_api.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "error message"
+                }
+            }
+        },
+        "internal_controlplane_api.JobRequest": {
+            "type": "object",
+            "required": [
+                "input_url",
+                "output",
+                "preset"
+            ],
+            "properties": {
+                "input_url": {
+                    "type": "string",
+                    "example": "https://example.com/video.mp4"
+                },
+                "output": {
+                    "$ref": "#/definitions/internal_controlplane_api.OutputConfig"
+                },
+                "preset": {
+                    "type": "string",
+                    "example": "720p_h264"
+                }
+            }
+        },
+        "internal_controlplane_api.JobResponse": {
+            "type": "object",
+            "properties": {
+                "job_id": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "accepted"
+                },
+                "stream_url": {
+                    "type": "string",
+                    "example": "/api/v1/jobs/550e8400-e29b-41d4-a716-446655440000/stream"
+                }
+            }
+        },
+        "internal_controlplane_api.OutputConfig": {
+            "type": "object",
+            "required": [
+                "path",
+                "storage"
+            ],
+            "properties": {
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "example": {
+                        "key1": "value1",
+                        "key2": "value2"
+                    }
+                },
+                "path": {
+                    "type": "string",
+                    "example": "output/video.mp4"
+                },
+                "storage": {
+                    "type": "string",
+                    "example": "s3"
+                }
+            }
+        },
+        "internal_controlplane_api.WorkerStatusResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "not implemented yet"
+                }
+            }
+        }
+    }
+}

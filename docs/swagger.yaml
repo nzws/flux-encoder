@@ -1,0 +1,140 @@
+basePath: /api/v1
+definitions:
+  internal_controlplane_api.ErrorResponse:
+    properties:
+      error:
+        example: error message
+        type: string
+    type: object
+  internal_controlplane_api.JobRequest:
+    properties:
+      input_url:
+        example: https://example.com/video.mp4
+        type: string
+      output:
+        $ref: '#/definitions/internal_controlplane_api.OutputConfig'
+      preset:
+        example: 720p_h264
+        type: string
+    required:
+    - input_url
+    - output
+    - preset
+    type: object
+  internal_controlplane_api.JobResponse:
+    properties:
+      job_id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      status:
+        example: accepted
+        type: string
+      stream_url:
+        example: /api/v1/jobs/550e8400-e29b-41d4-a716-446655440000/stream
+        type: string
+    type: object
+  internal_controlplane_api.OutputConfig:
+    properties:
+      metadata:
+        additionalProperties:
+          type: string
+        example:
+          key1: value1
+          key2: value2
+        type: object
+      path:
+        example: output/video.mp4
+        type: string
+      storage:
+        example: s3
+        type: string
+    required:
+    - path
+    - storage
+    type: object
+  internal_controlplane_api.WorkerStatusResponse:
+    properties:
+      message:
+        example: not implemented yet
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  title: Flux Encoder API
+  version: 0.1.0
+paths:
+  /jobs:
+    post:
+      consumes:
+      - application/json
+      description: Submit a new video encoding job to the Control Plane. The job will
+        be distributed to an available Worker.
+      parameters:
+      - description: Job parameters
+        in: body
+        name: job
+        required: true
+        schema:
+          $ref: '#/definitions/internal_controlplane_api.JobRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Job accepted
+          schema:
+            $ref: '#/definitions/internal_controlplane_api.JobResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/internal_controlplane_api.ErrorResponse'
+        "503":
+          description: No available workers
+          schema:
+            $ref: '#/definitions/internal_controlplane_api.ErrorResponse'
+      security:
+      - bearerAuth: []
+      summary: Create encoding job
+      tags:
+      - jobs
+  /jobs/{id}/stream:
+    get:
+      description: Get real-time job progress updates via Server-Sent Events (SSE)
+      parameters:
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: SSE stream of job progress
+          schema:
+            type: string
+        "404":
+          description: Job not found
+          schema:
+            $ref: '#/definitions/internal_controlplane_api.ErrorResponse'
+      security:
+      - bearerAuth: []
+      summary: Stream job progress
+      tags:
+      - jobs
+  /workers/status:
+    get:
+      description: Get status of all registered Workers (not implemented yet)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_controlplane_api.WorkerStatusResponse'
+      security:
+      - bearerAuth: []
+      summary: Get worker status
+      tags:
+      - workers
+swagger: "2.0"

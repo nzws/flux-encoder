@@ -1,0 +1,144 @@
+version: '3'
+
+vars:
+  PROTO_PATH: proto/worker/v1
+  BIN_DIR: bin
+
+tasks:
+  install-tools:
+    desc: Install required Go tools
+    cmds:
+      - "go install golang.org/x/tools/cmd/goimports@latest"
+      - "go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"
+      - "go install github.com/swaggo/swag/cmd/swag@latest"
+      - "go install google.golang.org/protobuf/cmd/protoc-gen-go@latest"
+      - "go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest"
+
+  # フォーマット
+  fmt:
+    desc: Format Go code
+    cmds:
+      - "go run golang.org/x/tools/cmd/goimports@latest -w ."
+      - "gofmt -s -w ."
+
+  # リント
+  lint:
+    desc: Run linters
+    cmds:
+      - "go run github.com/golangci/golangci-lint/cmd/golangci-lint@latest run"
+
+  # テスト
+  test:
+    desc: Run tests
+    cmds:
+      - "go test -v -race -cover ./..."
+
+  # テストカバレッジ
+  coverage:
+    desc: Generate test coverage report
+    cmds:
+      - "go test -coverprofile=coverage.out ./..."
+      - "go tool cover -html=coverage.out"
+
+  # ビルド
+  build:
+    desc: Build binaries
+    deps: [build:controlplane, build:worker]
+
+  build:controlplane:
+    desc: Build Control Plane
+    sources:
+      - cmd/controlplane/**/*.go
+      - internal/controlplane/**/*.go
+      - internal/shared/**/*.go
+    generates:
+      - "{{.BIN_DIR}}/controlplane"
+    cmds:
+      - mkdir -p {{.BIN_DIR}}
+      - "go build -o {{.BIN_DIR}}/controlplane ./cmd/controlplane"
+
+  build:worker:
+    desc: Build Worker
+    sources:
+      - cmd/worker/**/*.go
+      - internal/worker/**/*.go
+      - internal/shared/**/*.go
+    generates:
+      - "{{.BIN_DIR}}/worker"
+    cmds:
+      - mkdir -p {{.BIN_DIR}}
+      - "go build -o {{.BIN_DIR}}/worker ./cmd/worker"
+
+  # Protobuf生成
+  proto:
+    desc: Generate protobuf code
+    sources:
+      - "{{.PROTO_PATH}}/*.proto"
+    generates:
+      - "{{.PROTO_PATH}}/*.pb.go"
+    cmds:
+      - protoc --go_out=. --go_opt=paths=source_relative
+               --go-grpc_out=. --go-grpc_opt=paths=source_relative
+               {{.PROTO_PATH}}/worker.proto
+
+  # Swagger生成
+  swagger:
+    desc: Generate Swagger documentation
+    sources:
+      - cmd/controlplane/**/*.go
+      - internal/controlplane/**/*.go
+    generates:
+      - docs/swagger.json
+      - docs/swagger.yaml
+    cmds:
+      - "go run github.com/swaggo/swag/cmd/swag@latest init -g cmd/controlplane/main.go -o docs --parseDependency --parseInternal"
+
+  # 依存関係整理
+  tidy:
+    desc: Tidy Go modules
+    cmds:
+      - "go mod tidy"
+      - "go mod verify"
+
+  # クリーンアップ
+  clean:
+    desc: Clean build artifacts
+    cmds:
+      - rm -rf {{.BIN_DIR}}
+      - rm -f coverage.out
+
+  # すべてのチェック（CI用）
+  ci:
+    desc: Run all checks (format, lint, test)
+    cmds:
+      - task: fmt
+      - task: lint
+      - task: test
+      - echo "All checks passed!"
+
+  # 開発用: Control Planeを起動
+  dev:controlplane:
+    desc: Run Control Plane in dev mode
+    deps: [build:controlplane]
+    env:
+      ENV: development
+      PORT: 8080
+      WORKER_NODES: localhost:50051
+      WORKER_STARTUP_TIMEOUT: 60
+    cmds:
+      - "{{.BIN_DIR}}/controlplane"
+
+  # 開発用: Workerを起動
+  dev:worker:
+    desc: Run Worker in dev mode
+    deps: [build:worker]
+    env:
+      ENV: development
+      GRPC_PORT: 50051
+      MAX_CONCURRENT_JOBS: 2
+      WORK_DIR: /tmp/ffmpeg-jobs
+      STORAGE_TYPE: local
+      LOCAL_STORAGE_DIR: /tmp/ffmpeg-output
+      WORKER_ID: worker-dev-1
+    cmds:
+      - "{{.BIN_DIR}}/worker"

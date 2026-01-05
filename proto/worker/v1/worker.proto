@@ -1,0 +1,121 @@
+syntax = "proto3";
+
+package worker.v1;
+
+option go_package = "github.com/nzws/flux-encoder/proto/worker/v1;workerv1";
+
+// WorkerService は Worker Node が提供する gRPC サービス
+service WorkerService {
+  // SubmitJob はジョブを受け付け、進捗をストリームで返す
+  rpc SubmitJob(JobRequest) returns (stream JobProgress);
+
+  // GetStatus は Worker の現在の状態を返す
+  rpc GetStatus(StatusRequest) returns (WorkerStatus);
+
+  // CancelJob は実行中のジョブをキャンセルする
+  rpc CancelJob(CancelRequest) returns (CancelResponse);
+}
+
+// JobRequest はエンコードジョブのリクエスト
+message JobRequest {
+  // job_id は一意のジョブID（Control Planeが生成）
+  string job_id = 1;
+
+  // input_url はエンコード対象の入力URL
+  string input_url = 2;
+
+  // preset はエンコード設定のプリセット名（例: "720p_h264"）
+  string preset = 3;
+
+  // output はアップロード先の設定
+  OutputConfig output = 4;
+
+  // callback_url はジョブ完了時に呼び出すWebhook URL（オプション）
+  string callback_url = 5;
+}
+
+// OutputConfig はアップロード先の設定
+message OutputConfig {
+  // storage はストレージタイプ（"s3", "ftp", "local" など）
+  string storage = 1;
+
+  // path はアップロード先のパス
+  string path = 2;
+
+  // metadata は任意のメタデータ
+  map<string, string> metadata = 3;
+
+  // type は出力タイプ（"single", "hls", "dash"）デフォルトは "single"
+  string type = 4;
+}
+
+// JobProgress はジョブの進捗情報
+message JobProgress {
+  // job_id はジョブID
+  string job_id = 1;
+
+  // status はジョブのステータス
+  JobStatus status = 2;
+
+  // progress は進捗率（0-100）
+  float progress = 3;
+
+  // message は進捗メッセージ
+  string message = 4;
+
+  // timestamp はタイムスタンプ（RFC3339形式）
+  string timestamp = 5;
+
+  // output_url は完了時のアップロード先URL
+  string output_url = 6;
+
+  // error はエラー発生時のエラーメッセージ
+  string error = 7;
+}
+
+// JobStatus はジョブのステータス
+enum JobStatus {
+  JOB_STATUS_UNSPECIFIED = 0;
+  JOB_STATUS_QUEUED = 1;       // キューに入った
+  JOB_STATUS_PROCESSING = 2;   // エンコード中
+  JOB_STATUS_UPLOADING = 3;    // アップロード中
+  JOB_STATUS_COMPLETED = 4;    // 完了
+  JOB_STATUS_FAILED = 5;       // 失敗
+  JOB_STATUS_CANCELLED = 6;    // キャンセル
+}
+
+// StatusRequest は Worker 状態取得のリクエスト
+message StatusRequest {}
+
+// WorkerStatus は Worker の現在の状態
+message WorkerStatus {
+  // current_jobs は現在実行中のジョブ数
+  int32 current_jobs = 1;
+
+  // max_concurrent_jobs は最大同時実行数
+  int32 max_concurrent_jobs = 2;
+
+  // active_job_ids は実行中のジョブID一覧
+  repeated string active_job_ids = 3;
+
+  // worker_id は Worker の識別子
+  string worker_id = 4;
+
+  // version は Worker のバージョン
+  string version = 5;
+}
+
+// CancelRequest はジョブキャンセルのリクエスト
+message CancelRequest {
+  // job_id はキャンセルするジョブID
+  string job_id = 1;
+}
+
+// CancelResponse はジョブキャンセルのレスポンス
+message CancelResponse {
+  // success はキャンセルが成功したかどうか
+  bool success = 1;
+
+  // message はレスポンスメッセージ
+  string message = 2;
+}

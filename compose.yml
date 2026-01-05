@@ -1,0 +1,70 @@
+services:
+  controlplane:
+    build:
+      context: .
+      dockerfile: deployments/Dockerfile.controlplane
+    ports:
+      - "8080:8080"
+    environment:
+      - ENV=development
+      - PORT=8080
+      - WORKER_NODES=worker:50051,worker-2:50051
+      - WORKER_STARTUP_TIMEOUT=60
+      - API_KEY=dev-api-key-change-me
+      - LOG_LEVEL=debug
+    depends_on:
+      - worker
+    networks:
+      - flyencoder
+
+  worker:
+    build:
+      context: .
+      dockerfile: deployments/Dockerfile.worker
+    environment:
+      - ENV=development
+      - GRPC_PORT=50051
+      - MAX_CONCURRENT_JOBS=1
+      - WORK_DIR=/tmp/ffmpeg-jobs
+      - STORAGE_TYPE=local
+      - LOCAL_STORAGE_DIR=/output
+      - WORKER_ID=worker-docker-1
+      - LOG_LEVEL=debug
+    volumes:
+      - ./.tmp/worker/output:/output
+    networks:
+      - flyencoder
+  worker-2:
+    build:
+      context: .
+      dockerfile: deployments/Dockerfile.worker
+    environment:
+      - ENV=development
+      - GRPC_PORT=50051
+      - MAX_CONCURRENT_JOBS=1
+      - WORK_DIR=/tmp/ffmpeg-jobs
+      - STORAGE_TYPE=local
+      - LOCAL_STORAGE_DIR=/output
+      - WORKER_ID=worker-docker-2
+      - LOG_LEVEL=debug
+    volumes:
+      - ./.tmp/worker-2/output:/output
+    networks:
+      - flyencoder
+
+  # オプション: Prometheus（メトリクス収集）
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./deployments/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - flyencoder
+
+networks:
+  flyencoder:
+    driver: bridge

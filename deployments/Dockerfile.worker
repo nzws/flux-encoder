@@ -1,0 +1,40 @@
+# Build stage
+FROM golang:1.25-alpine AS builder
+
+WORKDIR /app
+
+# Install dependencies
+RUN apk add --no-cache git protobuf-dev protoc
+
+# Copy go mod files
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Build
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o worker ./cmd/worker
+
+# Runtime stage
+FROM jrottenberg/ffmpeg:6.1-alpine
+
+# Install ca-certificates
+RUN apk --no-cache add ca-certificates tzdata
+
+WORKDIR /root/
+
+# Copy binary
+COPY --from=builder /app/worker .
+
+# Create work directory
+RUN mkdir -p /tmp/ffmpeg-jobs
+
+# Expose gRPC port
+EXPOSE 50051
+
+# Reset ENTRYPOINT from base image (ffmpeg image sets ENTRYPOINT ["ffmpeg"])
+ENTRYPOINT []
+
+# Run
+CMD ["./worker"]
